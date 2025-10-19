@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { getUserFromCookie } from '../lib/getUser'
 
-export default async function Dashboard() {
-    const user = await getUserFromCookie()
+async function getStats(id) {
 
+}
+
+export default async function Dashboard(props) {
+    const stats = await getStats(props.user.userId)
     return (
         <div className="min-h-screen bg-base-100 p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
