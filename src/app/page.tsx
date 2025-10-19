@@ -7,11 +7,7 @@ export default async function Home() {
     
     return (
         <>
-            {user && (
-                <>
-                    <Dashboard />
-                </>
-            )}
+            {user &&  <Dashboard user={user}/>}
             {!user && (
                 <>
                     <div className="min-h-screen flex flex-col items-center justify-center bg-base-100 px-4">
