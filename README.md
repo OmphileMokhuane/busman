@@ -120,7 +120,7 @@ busman/
 │   │
 │   ├── actions/                  # Server Actions
 │   │   ├── userController.js     # Auth actions (login, register, logout)
-│   │   ├── clientActions.js      # Client CRUD operations
+│   │   ├── clientController.js      # Client CRUD operations
 │   │   ├── quotationActions.js   # Quotation operations
 │   │   ├── invoiceActions.js     # Invoice operations
 │   │   └── pumpActions.js        # Pump operations
