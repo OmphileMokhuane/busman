@@ -259,7 +259,7 @@ export async function createInvoice(prevState, formData) {
         
         await invoicesCollection.insertOne(newInvoice)
         
-        redirect("/invoices")
+        
     } catch (error) {
         console.error("Error creating invoice:", error)
         return {
@@ -267,6 +267,8 @@ export async function createInvoice(prevState, formData) {
             success: false
         }
     }
+
+    return redirect("/invoices")
 }
 
 // Update invoice
