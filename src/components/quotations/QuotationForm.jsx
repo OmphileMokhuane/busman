@@ -94,7 +94,7 @@ export default function QuotationForm({ clients, quotation = null }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Quotation Date */}
                     <div className="form-control">
-                        <label htmlFor="date" className="label">
+                        <label htmlFor="date" className="label mb-1">
                             <span className="label-text font-medium">
                                 Quotation Date <span className="text-error">*</span>
                             </span>
@@ -119,7 +119,7 @@ export default function QuotationForm({ clients, quotation = null }) {
 
                     {/* Valid Until Date */}
                     <div className="form-control">
-                        <label htmlFor="validUntil" className="label">
+                        <label htmlFor="validUntil" className="label mb-1">
                             <span className="label-text font-medium">
                                 Valid Until <span className="text-error">*</span>
                             </span>

@@ -110,7 +110,7 @@ export default function InvoiceList({ invoices, clients }) {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="select select-bordered rounded-full"
+                        className="select select-bordered rounded-full px-4"
                     >
                         <option value="all">All Status</option>
                         <option value="draft">Draft</option>

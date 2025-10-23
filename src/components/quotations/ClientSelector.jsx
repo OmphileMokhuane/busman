@@ -3,7 +3,7 @@
 export default function ClientSelector({ clients, selectedClientId, onChange, error }) {
     return (
         <div className="form-control">
-            <label htmlFor="clientId" className="label">
+            <label htmlFor="clientId" className="label mb-1">
                 <span className="label-text font-medium">
                     Select Client <span className="text-error">*</span>
                 </span>
@@ -13,7 +13,7 @@ export default function ClientSelector({ clients, selectedClientId, onChange, er
                 name="clientId"
                 value={selectedClientId}
                 onChange={(e) => onChange(e.target.value)}
-                className="select select-bordered w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="select select-bordered w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-primary px-2"
             >
                 <option value="">-- Choose a client --</option>
                 {clients.map((client) => (

@@ -33,7 +33,7 @@ export default function ClientForm() {
 
             {/* Name - Required */}
             <div className="form-control">
-                <label htmlFor="name" className="label">
+                <label htmlFor="name" className="label mb-1">
                     <span className="label-text font-medium">
                         Client Name <span className="text-error">*</span>
                     </span>
@@ -58,7 +58,7 @@ export default function ClientForm() {
 
             {/* Email - Required */}
             <div className="form-control">
-                <label htmlFor="email" className="label">
+                <label htmlFor="email" className="label mb-1">
                     <span className="label-text font-medium">
                         Email Address <span className="text-error">*</span>
                     </span>
@@ -82,7 +82,7 @@ export default function ClientForm() {
 
             {/* Phone Number - Optional */}
             <div className="form-control">
-                <label htmlFor="phoneNumber" className="label">
+                <label htmlFor="phoneNumber" className="label mb-1">
                     <span className="label-text font-medium">Phone Number</span>
                     <span className="label-text-alt text-gray-500">Optional</span>
                 </label>
@@ -105,7 +105,7 @@ export default function ClientForm() {
 
             {/* Company Name - Optional */}
             <div className="form-control">
-                <label htmlFor="companyName" className="label">
+                <label htmlFor="companyName" className="label mb-1">
                     <span className="label-text font-medium">Company Name</span>
                     <span className="label-text-alt text-gray-500">Optional</span>
                 </label>

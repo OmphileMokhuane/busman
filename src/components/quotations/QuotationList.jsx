@@ -101,7 +101,7 @@ export default function QuotationList({ quotations, clients }) {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="select select-bordered rounded-full p-2"
+                        className="select select-bordered rounded-full px-5"
                     >
                         <option value="all">All Status</option>
                         <option value="draft">Draft</option>

@@ -412,7 +412,7 @@ export async function updateInvoice(invoiceId, prevState, formData) {
             }
         )
         
-        redirect("/invoices")
+        
     } catch (error) {
         console.error("Error updating invoice:", error)
         return {
@@ -420,6 +420,8 @@ export async function updateInvoice(invoiceId, prevState, formData) {
             success: false
         }
     }
+
+    return redirect("/invoices")
 }
 
 // Delete invoice
@@ -585,9 +587,8 @@ export async function recordPayment(invoiceId, prevState, formData) {
             }
         )
         
-        return {
-            success: true
-        }
+        // Redirect to invoice detail page after successful payment
+        
     } catch (error) {
         console.error("Error recording payment:", error)
         return {
@@ -595,4 +596,6 @@ export async function recordPayment(invoiceId, prevState, formData) {
             success: false
         }
     }
+
+    return redirect(`/invoices/${invoiceId}`)
 }

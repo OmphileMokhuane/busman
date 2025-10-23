@@ -95,7 +95,7 @@ export default function InvoiceForm({ clients, invoice = null }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     {/* Invoice Date */}
                     <div className="form-control">
-                        <label htmlFor="date" className="label">
+                        <label htmlFor="date" className="label mb-1">
                             <span className="label-text font-medium">
                                 Invoice Date <span className="text-error">*</span>
                             </span>
@@ -120,7 +120,7 @@ export default function InvoiceForm({ clients, invoice = null }) {
 
                     {/* Due Date */}
                     <div className="form-control">
-                        <label htmlFor="dueDate" className="label">
+                        <label htmlFor="dueDate" className="label mb-1">
                             <span className="label-text font-medium">
                                 Due Date <span className="text-error">*</span>
                             </span>
@@ -147,7 +147,7 @@ export default function InvoiceForm({ clients, invoice = null }) {
 
                 {/* Purchase Order Number */}
                 <div className="form-control mb-4">
-                    <label htmlFor="purchaseOrderNumber" className="label">
+                    <label htmlFor="purchaseOrderNumber" className="label mb-1">
                         <span className="label-text font-medium">Purchase Order Number</span>
                         <span className="label-text-alt text-gray-500">Optional</span>
                     </label>
@@ -212,7 +212,7 @@ export default function InvoiceForm({ clients, invoice = null }) {
                 
                 {/* Tax Rate */}
                 <div className="form-control mb-4">
-                    <label htmlFor="taxRate" className="label">
+                    <label htmlFor="taxRate" className="label mb-1">
                         <span className="label-text font-medium">Tax Rate (%)</span>
                     </label>
                     <input
@@ -259,7 +259,7 @@ export default function InvoiceForm({ clients, invoice = null }) {
                     Additional Notes
                 </h3>
                 <div className="form-control">
-                    <label htmlFor="notes" className="label">
+                    <label htmlFor="notes" className="label mb-1">
                         <span className="label-text font-medium">Notes</span>
                         <span className="label-text-alt text-gray-500">Optional</span>
                     </label>
