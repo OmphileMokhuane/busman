@@ -4,7 +4,7 @@ import { useState } from "react"
 import { deleteQuotation, updateQuotationStatus } from "../../actions/quotationsController"
 import { useRouter } from "next/navigation"
 
-export default function QuotationPreview({ quotation }) {
+export default function QuotationPreview({ quotation, convertedInvoice = null }) {
     const router = useRouter()
     const [isDeleting, setIsDeleting] = useState(false)
     const [deleteError, setDeleteError] = useState("")
@@ -80,8 +80,31 @@ export default function QuotationPreview({ quotation }) {
                 </div>
             )}
 
+            {/* Converted to Invoice Alert */}
+            {convertedInvoice && (
+                <div role="alert" className="alert alert-success rounded-xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                        <h3 className="font-bold">Converted to Invoice</h3>
+                        <div className="text-sm">
+                            This quotation has been converted to invoice{" "}
+                            <Link href={`/invoices/${convertedInvoice._id.toString()}`} className="font-bold underline hover:text-white">
+                                {convertedInvoice.invoiceNumber}
+                            </Link>
+                        </div>
+                    </div>
+                    <Link href={`/invoices/${convertedInvoice._id.toString()}`}>
+                        <button className="btn btn-sm btn-success text-white">
+                            View Invoice →
+                        </button>
+                    </Link>
+                </div>
+            )}
+
             {/* Expiry Warning */}
-            {isExpired && quotation.status !== "expired" && (
+            {isExpired && quotation.status !== "expired" && !convertedInvoice && (
                 <div role="alert" className="alert alert-warning rounded-xl">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -102,7 +125,7 @@ export default function QuotationPreview({ quotation }) {
                         </button>
                     </Link>
                     
-                    {quotation.status === "accepted" && (
+                    {quotation.status === "accepted" && !convertedInvoice && (
                         <Link href={`/quotations/${quotation._id}/convert`}>
                             <button className="btn btn-success btn-sm rounded-lg text-white">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

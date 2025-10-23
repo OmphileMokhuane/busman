@@ -1,225 +1,338 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BMan - Business Management System
 
-## Getting Started
+A comprehensive business management application built with Next.js, designed for managing clients, quotations, invoices, and pump repair services. The system provides a complete workflow from client onboarding to invoice generation and payment tracking.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Core Functionality
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **User Authentication**: Secure registration and login with JWT tokens and bcrypt password hashing
+- **Dashboard**: Overview of business metrics with quick action buttons
+- **Client Management**: Create, view, edit, and delete client records with validation
+- **Quotation System**: Generate professional quotations with line items, tax calculations, and expiry dates
+- **Invoice Management**: Convert quotations to invoices, track payments, and manage invoice status
+- **Pump Repair Tracking**: Specialized module for pump service businesses (clients, repairs, parts, costs)
+- **Settings**: Configurable business information, numbering prefixes, and default values
 
-# Business Management System (BMan) - File Structure
+### Technical Features
 
-## Root Directory
+- **Server-Side Rendering**: Built with Next.js 15 App Router for optimal performance
+- **Database Integration**: MongoDB with structured collections and relationships
+- **Responsive Design**: Mobile-first design using Tailwind CSS and DaisyUI components
+- **Form Validation**: Comprehensive client and server-side validation
+- **Real-time Updates**: Automatic calculation of totals, taxes, and balances
+- **Security**: HTTP-only cookies, input sanitization, and secure authentication
 
-```bash
-busman/
-├── .git/                          # Git repository (on main branch)
-├── .next/                         # Next.js build output (auto-generated)
-├── node_modules/                  # Dependencies (auto-generated)
-├── public/                        # Static assets
-│   ├── favicon.ico
-│   └── images/
-├── src/                          # Source code
-│   ├── app/                      # Next.js App Router pages
-│   │   ├── layout.tsx            # Root layout with Header
-│   │   ├── page.tsx              # Dashboard (home page)
-│   │   ├── globals.css           # Global styles
-│   │   │
-│   │   ├── login/                # Login page
-│   │   │   └── page.jsx
-│   │   │
-│   │   ├── clients/              # Client management
-│   │   │   ├── page.jsx          # List all clients
-│   │   │   ├── new/
-│   │   │   │   └── page.jsx      # Add new client form
-│   │   │   └── [id]/
-│   │   │       ├── page.jsx      # View client details
-│   │   │       └── edit/
-│   │   │           └── page.jsx  # Edit client form
-│   │   │
-│   │   ├── quotations/           # Quotation management
-│   │   │   ├── page.jsx          # List all quotations
-│   │   │   ├── new/
-│   │   │   │   └── page.jsx      # Create new quotation
-│   │   │   └── [id]/
-│   │   │       ├── page.jsx      # View quotation
-│   │   │       ├── edit/
-│   │   │       │   └── page.jsx  # Edit quotation
-│   │   │       └── convert/
-│   │   │           └── page.jsx  # Convert to invoice
-│   │   │
-│   │   ├── invoices/             # Invoice management
-│   │   │   ├── page.jsx          # List all invoices
-│   │   │   ├── new/
-│   │   │   │   └── page.jsx      # Create new invoice
-│   │   │   └── [id]/
-│   │   │       ├── page.jsx      # View invoice
-│   │   │       ├── edit/
-│   │   │       │   └── page.jsx  # Edit invoice
-│   │   │       └── payment/
-│   │   │           └── page.jsx  # Record payment
-│   │   │
-│   │   └── pumps/                # Pump management
-│   │       ├── page.jsx          # List all pumps in workshop
-│   │       ├── new/
-│   │       │   └── page.jsx      # Add pump to workshop
-│   │       └── [id]/
-│   │           ├── page.jsx      # View pump details
-│   │           ├── edit/
-│   │           │   └── page.jsx  # Update pump status/notes
-│   │           └── invoice/
-│   │               └── page.jsx  # Generate invoice for repair
-│   │
-│   ├── components/               # Reusable components
-│   │   ├── Header.jsx            # Main navigation (Server Component)
-│   │   ├── MobileMenu.jsx        # Mobile menu (Client Component)
-│   │   ├── Dashboard.jsx         # Dashboard content (Client Component)
-│   │   ├── RegisterForm.jsx      # Registration form (Client Component)
-│   │   │
-│   │   ├── clients/              # Client-specific components
-│   │   │   ├── ClientForm.jsx    # Add/Edit client form
-│   │   │   ├── ClientList.jsx    # Client table/list
-│   │   │   ├── ClientCard.jsx    # Client card display
-│   │   │   └── ClientSelector.jsx # Dropdown to select client
-│   │   │
-│   │   ├── quotations/           # Quotation components
-│   │   │   ├── QuotationForm.jsx
-│   │   │   ├── QuotationList.jsx
-│   │   │   ├── QuotationPreview.jsx
-│   │   │   └── LineItemEditor.jsx # Add/edit line items
-│   │   │
-│   │   ├── invoices/             # Invoice components
-│   │   │   ├── InvoiceForm.jsx
-│   │   │   ├── InvoiceList.jsx
-│   │   │   ├── InvoicePreview.jsx
-│   │   │   └── PaymentForm.jsx
-│   │   │
-│   │   ├── pumps/                # Pump components
-│   │   │   ├── PumpForm.jsx
-│   │   │   ├── PumpList.jsx
-│   │   │   ├── PumpCard.jsx
-│   │   │   └── StatusTracker.jsx # Visual status tracker
-│   │   │
-│   │   └── ui/                   # Shared UI components
-│   │       ├── Button.jsx
-│   │       ├── Input.jsx
-│   │       ├── Select.jsx
-│   │       ├── Modal.jsx
-│   │       ├── Alert.jsx
-│   │       ├── Table.jsx
-│   │       └── Card.jsx
-│   │
-│   ├── actions/                  # Server Actions
-│   │   ├── userController.js     # Auth actions (login, register, logout)
-│   │   ├── clientController.js      # Client CRUD operations
-│   │   ├── quotationActions.js   # Quotation operations
-│   │   ├── invoiceActions.js     # Invoice operations
-│   │   └── pumpActions.js        # Pump operations
-│   │
-│   ├── lib/                      # Utility functions & configs
-│   │   ├── db.js                 # MongoDB connection
-│   │   ├── getUser.js            # Get user from cookie
-│   │   ├── schema.js             # Database schema documentation
-│   │   ├── validators.js         # Form validation functions
-│   │   ├── formatters.js         # Date, currency formatters
-│   │   └── generators.js         # Generate invoice/quotation numbers
-│   │
-│   └── utils/                    # Helper utilities
-│       ├── constants.js          # App constants (statuses, etc.)
-│       ├── calculations.js       # Tax, total calculations
-│       └── pdf.js                # PDF generation (future)
-│
-├── .env.local                    # Environment variables (NOT in git)
-├── .gitignore                    # Git ignore file
-├── package.json                  # Dependencies
-├── package-lock.json             # Lock file
-├── next.config.js                # Next.js configuration
-├── tailwind.config.js            # Tailwind CSS config
-├── postcss.config.js             # PostCSS config
-├── tsconfig.json                 # TypeScript config
-├── PROJECT_STRUCTURE.md          # This file
-└── README.md                     # Project documentation
-```
+## 🛠️ Tech Stack
 
-## **Component Hierarchy**
+### Frontend
+
+- **Next.js 15**: React framework with App Router
+- **React 19**: Latest React with concurrent features
+- **TypeScript**: Type safety for better development experience
+- **Tailwind CSS 4**: Utility-first CSS framework
+- **DaisyUI**: Component library built on Tailwind
+
+### Backend
+
+- **Next.js API Routes**: Server-side API endpoints
+- **Server Actions**: Form handling and data mutations
+- **MongoDB**: NoSQL database for flexible data storage
+- **Mongoose**: MongoDB object modeling (via native driver)
+
+### Security & Authentication
+
+- **JWT**: JSON Web Tokens for session management
+- **bcrypt**: Password hashing and verification
+- **HTTP-only Cookies**: Secure cookie storage
+
+### Development Tools
+
+- **Turbopack**: Fast bundler for development
+- **ESLint**: Code linting and formatting
+- **PostCSS**: CSS processing
+
+## 📁 Project Structure
 
 ```bash
-App
-├── Layout (Server)
-│   ├── Header (Server)
-│   │   └── MobileMenu (Client)
-│   └── Children (Pages)
-│
-├── Dashboard (Server → Client)
-│   ├── Stats Cards
-│   ├── Quick Actions
-│   └── Recent Activity
-│
-├── Clients Pages
-│   ├── List (Server)
-│   │   └── ClientList (Client)
-│   ├── New (Server)
-│   │   └── ClientForm (Client)
-│   └── Detail (Server)
-│       └── ClientCard (Client)
-│
-├── Quotations Pages
-│   ├── List (Server)
-│   │   └── QuotationList (Client)
-│   └── New (Server)
-│       ├── ClientSelector (Client)
-│       └── QuotationForm (Client)
-│           └── LineItemEditor (Client)
-│
-├── Invoices Pages (similar structure)
-└── Pumps Pages (similar structure)
+src/
+├── app/                    # Next.js App Router pages
+│   ├── clients/           # Client management pages
+│   ├── invoices/          # Invoice management pages
+│   ├── quotations/        # Quotation management pages
+│   ├── settings/          # Settings page
+│   ├── login/             # Authentication page
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx           # Home/dashboard page
+│   └── globals.css        # Global styles
+├── components/            # Reusable React components
+│   ├── clients/           # Client-related components
+│   ├── invoices/          # Invoice-related components
+│   ├── quotations/        # Quotation-related components
+│   ├── settings/          # Settings components
+│   ├── Dashboard.jsx      # Main dashboard component
+│   ├── Header.jsx         # Navigation header
+│   ├── MobileMenu.jsx     # Mobile navigation
+│   └── RegisterForm.jsx   # Registration form
+├── lib/                   # Utility libraries
+│   ├── db.js              # MongoDB connection
+│   ├── getUser.js         # User authentication helper
+│   ├── schema.js          # Database schema definitions
+│   └── settingsSchema.js  # Settings schema
+└── actions/               # Server actions for data operations
+    ├── clientsController.js    # Client CRUD operations
+    ├── invoiceController.js    # Invoice management
+    ├── quotationsController.js # Quotation management
+    ├── settingsController.js   # Settings management
+    └── userController.js       # User authentication
 ```
 
-## **Data Flow**
+## 🗄️ Database Schema
 
-```bash
-1. User Authentication
-   Browser → Login Form → Server Action (login) → Set Cookie → Redirect
+### Collections
 
-2. Fetching Data
-   Page (Server) → getCollection() → MongoDB → Return Data → Pass to Client Component
-
-3. Creating/Updating Data
-   Form (Client) → Server Action → Validate → MongoDB → Redirect/Return
-
-4. Client Selection Flow
-   Create Quotation/Invoice/Pump → ClientSelector → Fetch Clients → Select → Save with clientId
-```
-
-## **Status Enums**
+#### Users Collection
 
 ```javascript
-// Quotation Statuses
-['draft', 'sent', 'accepted', 'rejected', 'expired']
-
-// Invoice Statuses
-['draft', 'sent', 'paid', 'partial', 'overdue', 'cancelled']
-
-// Pump Statuses
-['received', 'in-diagnosis', 'awaiting-parts', 'in-repair', 'repaired', 'ready-collection', 'delivered']
+{
+  _id: ObjectId,
+  username: String (unique, 3-30 chars, alphanumeric),
+  password: String (bcrypt hashed),
+  createdAt: Date
+}
 ```
 
-## **Next Steps to Build**
+#### Clients
 
-1. ✅ Authentication (Done)
-2. ✅ Dashboard (Done)
-3. 🔄 Client Management (Next)
-4. ⏳ Quotations
-5. ⏳ Invoices
-6. ⏳ Pumps
-7. ⏳ PDF Generation
-8. ⏳ Reports & Analytics
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId (reference to users),
+  name: String (required),
+  companyName: String (optional),
+  email: String (required, unique per user),
+  phoneNumber: String (optional),
+  companyAddress: String (required if companyName exists),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Quotations Collection
+
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  clientId: ObjectId,
+  quotationNumber: String (auto-generated: QUO-YYYY-NNN),
+  date: Date,
+  validUntil: Date,
+  items: [{
+    description: String,
+    quantity: Number,
+    unitPrice: Number,
+    total: Number
+  }],
+  subtotal: Number,
+  tax: Number,
+  taxRate: Number,
+  total: Number,
+  status: String (draft|sent|accepted|rejected|expired),
+  notes: String,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Invoices Collection
+
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  clientId: ObjectId,
+  quotationId: ObjectId (optional),
+  invoiceNumber: String (auto-generated: INV-YYYY-NNN),
+  date: Date,
+  dueDate: Date,
+  items: [/* same as quotations */],
+  subtotal: Number,
+  tax: Number,
+  taxRate: Number,
+  total: Number,
+  amountPaid: Number,
+  balance: Number,
+  status: String (draft|sent|paid|partial|overdue|cancelled),
+  paymentMethod: String,
+  paymentDate: Date,
+  notes: String,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Pumps Collection
+
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  clientId: ObjectId,
+  pumpModel: String,
+  serialNumber: String (unique),
+  brand: String,
+  status: String (received|in-diagnosis|awaiting-parts|in-repair|repaired|ready-collection|delivered),
+  dateReceived: Date,
+  dateDelivered: Date,
+  issueDescription: String,
+  diagnosisNotes: String,
+  repairNotes: String,
+  partsUsed: [{
+    partName: String,
+    partNumber: String,
+    quantity: Number,
+    cost: Number
+  }],
+  estimatedCost: Number,
+  actualCost: Number,
+  laborCost: Number,
+  totalCost: Number,
+  invoiceId: ObjectId (optional),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+#### Settings Collection
+
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId (unique per user),
+  businessName: String,
+  businessAddress: String,
+  businessPhone: String,
+  businessEmail: String,
+  invoicePrefix: String (default: "INV"),
+  invoiceStartNumber: Number (default: 1),
+  invoiceCurrentNumber: Number,
+  quotationPrefix: String (default: "QUO"),
+  quotationStartNumber: Number (default: 1),
+  quotationCurrentNumber: Number,
+  defaultTaxRate: Number (default: 15),
+  defaultPaymentTerms: Number (default: 30),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+## 🚀 Installation
+
+1.**Clone the repository**
+
+```bash
+   git clone <repository-url>
+   cd busman
+   ```
+
+2.**Install dependencies**
+
+```bash
+   npm install
+   ```
+
+3.**Environment Setup**
+Create a `.env.local` file in the root directory:
+
+   ```env
+   CONNECTIONSTRING=mongodb://localhost:27017/busman
+   JWT_SECRET=your-super-secret-jwt-key-here
+   ```
+
+4.**Start MongoDB**
+   Make sure MongoDB is running on your system.
+
+5.**Run the development server**
+
+   ```bash
+   npm run dev
+   ```
+
+6.**Open your browser**
+   Navigate to `http://localhost:3000`
+
+## 📖 Usage
+
+### Getting Started
+
+1. **Register**: Create a new account on the homepage
+2. **Login**: Use your credentials to access the dashboard
+3. **Configure Settings**: Set up your business information and preferences
+
+### Managing Clients
+
+- Navigate to `/clients` to view all clients
+- Click "New Client" to add a client
+- Edit or delete clients as needed
+
+### Creating Quotations
+
+- Go to `/quotations` and click "New Quotation"
+- Select a client and add line items
+- Set tax rate and validity period
+- Save as draft or send to client
+
+### Invoice Management
+
+- Convert quotations to invoices from the quotation details page
+- Track payments and update invoice status
+- View payment history and outstanding balances
+
+### Pump Repair Workflow
+
+- Add pumps for existing clients
+- Track repair status through the workflow
+- Generate invoices for completed repairs
+
+## 🔧 Development
+
+### Available Scripts
+
+- `npm run dev` - Start development server with Turbopack
+- `npm run build` - Build for production
+- `npm start` - Start production server
+
+### Code Style
+
+- Uses ESLint for code linting
+- TypeScript for type safety
+- Consistent naming conventions
+- Server actions for data mutations
+
+### Key Patterns
+
+- **Server Components**: Used for data fetching and initial rendering
+- **Client Components**: Used for interactivity and forms
+- **Server Actions**: Handle form submissions and data mutations
+- **Middleware**: Authentication checks and redirects
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is private and proprietary.
+
+## 📞 Support
+
+For support or questions, please contact the development team.
+
+---
+
+**Built with ❤️ using Next.js, React, and MongoDB**

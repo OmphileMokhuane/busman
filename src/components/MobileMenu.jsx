@@ -112,11 +112,11 @@ export default function MobileMenu({ user }) {
                     Invoices
                   </Link>
                   <Link
-                    href="/pumps"
+                    href="/settings"
                     onClick={closeMenu}
                     className="block px-4 py-3 rounded-lg text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-primary/10 hover:text-primary transition-all duration-200"
                   >
-                    Pumps
+                    Settings
                   </Link>
                   <div className="pt-4 mt-4 border-t border-base-200">
                     <form action={logout}>

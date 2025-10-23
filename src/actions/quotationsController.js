@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { getUserFromCookie } from "../lib/getUser"
 import { getCollection } from "../lib/db"
 import { ObjectId } from "mongodb"
+import { create } from "domain"
 
 // Helper function to generate quotation number
 async function generateQuotationsNumber(userId) {
@@ -31,6 +32,172 @@ async function generateQuotationsNumber(userId) {
     }
     
     return `QUO-${year}-${String(nextNumber).padStart(3, '0')}`
+}
+
+// Helper function to generate invoice number
+async function generateInvoiceNumber(userId) {
+    const invoicesCollection = await getCollection("invoices")
+    const year = new Date().getFullYear()
+
+    const latestInvoice = await invoicesCollection.find({
+        userId: ObjectId.createFromHexString(userId),
+        invoiceNumber: new RegExp(`^INV-${year}-`)
+    }).sort({
+        createdAt: -1
+    }).limit(1).toArray()
+
+    let nextNumber = 1
+
+    if (latestInvoice.length > 0) {
+        const lastNumber = latestInvoice[0].invoiceNumber
+        const match = lastNumber.match(/INV-\d{4}-(\d+)/)
+        if (match) { 
+            nextNumber = parseInt(match[1]) + 1
+        }
+    }
+
+    return `INV-${year}-${String(nextNumber).padStart(3, '0')}`
+}
+
+// Convert quotation to invoice
+export async function convertQuotationToInvoice(quotationId, prevState, formData) {
+    const user = await getUserFromCookie()
+    
+    if (!user) {
+        redirect("/login")
+    }
+    
+    const errors = {}
+    
+    // Get form data
+    const invoiceDate = formData.get("invoiceDate")
+    const dueDate = formData.get("dueDate")
+    const purchaseOrderNumber = formData.get("purchaseOrderNumber")
+    const additionalNotes = formData.get("additionalNotes")
+
+    
+    
+    // Validation
+    if (!invoiceDate || typeof invoiceDate !== "string") {
+        errors.invoiceDate = "Invoice date is required"
+    }
+    
+    if (!dueDate || typeof dueDate !== "string") {
+        errors.dueDate = "Due date is required"
+    }
+    
+    if (invoiceDate && dueDate) {
+        const invDate = new Date(invoiceDate)
+        const dueDateObj = new Date(dueDate)
+        
+        if (dueDateObj < invDate) {
+            errors.dueDate = "Due date must be on or after invoice date"
+        }
+    }
+    
+    if (Object.keys(errors).length > 0) {
+        return {
+            errors,
+            success: false
+        }
+    }
+    
+    let newInvoiceId = null
+    try {
+        // Get the quotation
+        const quotationsCollection = await getCollection("quotations")
+        const quotation = await quotationsCollection.findOne({
+            _id: ObjectId.createFromHexString(quotationId),
+            userId: ObjectId.createFromHexString(user.userId)
+        })
+        
+        if (!quotation) {
+            return {
+                errors: { general: "Quotation not found" },
+                success: false
+            }
+        }
+        
+        // Check if quotation has already been converted
+        const invoicesCollection = await getCollection("invoices")
+        const existingInvoice = await invoicesCollection.findOne({
+            quotationId: ObjectId.createFromHexString(quotationId)
+        })
+        
+        if (existingInvoice) {
+            return {
+                errors: { general: "This quotation has already been converted to an invoice" },
+                success: false
+            }
+        }
+        
+        // Generate invoice number
+        const invoiceNumber = await generateInvoiceNumber(user.userId)
+        
+        // Combine notes
+        let combinedNotes = quotation.notes || ""
+        const additionalNotesText = typeof additionalNotes === "string" ? additionalNotes.trim() : ""
+        
+        if (additionalNotesText) {
+            combinedNotes = combinedNotes 
+                ? `${combinedNotes}\n\n${additionalNotesText}`
+                : additionalNotesText
+        }
+        
+        // Create invoice from quotation
+        const newInvoice = {
+            invoiceNumber,
+            userId: quotation.userId,
+            clientId: quotation.clientId,
+            quotationId: ObjectId.createFromHexString(quotationId),
+            date: new Date(invoiceDate),
+            dueDate: new Date(dueDate),
+            items: quotation.items, // Copy line items
+            subtotal: quotation.subtotal,
+            taxRate: quotation.taxRate,
+            tax: quotation.tax,
+            total: quotation.total,
+            amountPaid: 0,
+            balance: quotation.total,
+            status: "draft",
+            paymentMethod: null,
+            paymentDate: null,
+            purchaseOrderNumber: typeof purchaseOrderNumber === "string" ? purchaseOrderNumber.trim() : null,
+            notes: combinedNotes,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        }
+        
+        const result = await invoicesCollection.insertOne(newInvoice)
+        newInvoiceId = result.insertedId.toString()
+        
+        // Update quotation status to accepted (if not already)
+        if (quotation.status !== "accepted") {
+            await quotationsCollection.updateOne(
+                {
+                    _id: ObjectId.createFromHexString(quotationId),
+                    userId: ObjectId.createFromHexString(user.userId)
+                },
+                {
+                    $set: {
+                        status: "accepted",
+                        updatedAt: new Date()
+                    }
+                }
+            )
+        }
+        
+        
+    } catch (error) {
+        console.error("Error converting quotation to invoice:", error)
+        return {
+            errors: { general: "Failed to convert quotation. Please try again." },
+            success: false
+        }
+    }
+
+    // Redirect to the new invoice
+    return redirect(`/invoices/${newInvoiceId}`)
 }
 
 // Get all quotations for the logged-in user
