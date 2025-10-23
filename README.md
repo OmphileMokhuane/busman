@@ -317,14 +317,6 @@ Create a `.env.local` file in the root directory:
 - **Server Actions**: Handle form submissions and data mutations
 - **Middleware**: Authentication checks and redirects
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## 📄 License
 
 This project is private and proprietary.
