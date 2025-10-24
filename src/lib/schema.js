@@ -117,7 +117,17 @@ const invoicesSchema = {
     paymentDate: "Date - Optional - When payment was received",
     notes: "String - Optional additional notes",
     createdAt: "Date - Auto-generated",
-    updatedAt: "Date - Auto-updated"
+    updatedAt: "Date - Auto-updated",
+    paymentHistory: [
+      {
+        amount: "Number - Payment amount",
+        paymentMethod: "String - Payment method used",
+        paymentDate: "Date - When payment was received",
+        recordedBy: "String - User who recorded payment",
+        recordedAt: "Date - When payment was recorded",
+        notes: "String - Optional payment notes"
+      }
+    ]
   },
   indexes: [
     { userId: 1 },

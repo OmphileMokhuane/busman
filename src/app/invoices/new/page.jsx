@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import { getClients } from "@/actions/clientsController"
 import InvoiceForm from "@/components/invoices/InvoiceForm"
 import Link from "next/link"
+import { getCollection } from "@/lib/db"
+import { ObjectId } from "mongodb"
 
 export default async function Page() {
     const user = await getUserFromCookie()
@@ -12,6 +14,13 @@ export default async function Page() {
     }
     
     const clients = await getClients()
+    
+    // Get default tax rate from settings
+    const settingsCollection = await getCollection("settings")
+    const settings = await settingsCollection.findOne({
+        userId: ObjectId.createFromHexString(user.userId)
+    })
+    const defaultTaxRate = settings?.defaultTaxRate || 15
     
     // Check if user has clients
     if (clients.length === 0) {
@@ -68,7 +77,7 @@ export default async function Page() {
                 </div>
                 
                 {/* Form */}
-                <InvoiceForm clients={clients} />
+                <InvoiceForm clients={clients} defaultTaxRate={defaultTaxRate} />
             </div>
         </div>
     )

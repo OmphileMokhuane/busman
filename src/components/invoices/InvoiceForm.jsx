@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation"
 import ClientSelector from "../quotations/ClientSelector"
 import LineItemEditor from "../quotations/LineItemEditor"
 import Link from "next/link"
+import { useEffect } from "react"
 
-export default function InvoiceForm({ clients, invoice = null }) {
+export default function InvoiceForm({ clients, invoice = null, defaultTaxRate = 15 }) {
     const searchParams = useSearchParams()
     const preSelectedClientId = searchParams.get("clientId")
     const isEditing = !!invoice
@@ -24,7 +25,8 @@ export default function InvoiceForm({ clients, invoice = null }) {
     const [items, setItems] = useState(
         invoice?.items || [{ description: "", quantity: 1, unitPrice: 0 }]
     )
-    const [taxRate, setTaxRate] = useState(invoice?.taxRate || 15)
+    const [taxRate, setTaxRate] = useState(invoice?.taxRate || defaultTaxRate)
+    
 
     // Calculate totals
     const subtotal = items.reduce((sum, item) => {

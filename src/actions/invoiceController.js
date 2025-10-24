@@ -4,32 +4,92 @@ import { getUserFromCookie } from "../lib/getUser"
 import { redirect } from "next/navigation"
 import { ObjectId } from "mongodb"
 
-// Helper function to generate invoice number
+// Helper function to generate invoice number from settings
 async function generateInvoiceNumber(userId) {
+    const settingsCollection = await getCollection("settings")
     const invoicesCollection = await getCollection("invoices")
-    const year = new Date().getFullYear()
     
-    // Find the latest invoice number for this user in this year
-    const latestInvoice = await invoicesCollection
-        .find({ 
+    // Get user settings
+    let settings = await settingsCollection.findOne({
+        userId: ObjectId.createFromHexString(userId)
+    })
+    
+    // Create default settings if none exist
+    if (!settings) {
+        const defaultSettings = {
             userId: ObjectId.createFromHexString(userId),
-            invoiceNumber: new RegExp(`^INV-${year}-`)
-        })
-        .sort({ createdAt: -1 })
-        .limit(1)
-        .toArray()
-    
-    let nextNumber = 1
-    
-    if (latestInvoice.length > 0) {
-        const lastNumber = latestInvoice[0].invoiceNumber
-        const match = lastNumber.match(/INV-\d{4}-(\d+)/)
-        if (match) {
-            nextNumber = parseInt(match[1]) + 1
+            invoicePrefix: "INV",
+            invoiceStartNumber: 1,
+            invoiceCurrentNumber: 1,
+            quotationPrefix: "QUO",
+            quotationStartNumber: 1,
+            quotationCurrentNumber: 1,
+            defaultTaxRate: 15,
+            defaultPaymentTerms: 30,
+            businessName: "",
+            businessAddress: "",
+            businessPhone: "",
+            businessEmail: "",
+            createdAt: new Date(),
+            updatedAt: new Date()
         }
+        
+        await settingsCollection.insertOne(defaultSettings)
+        settings = defaultSettings
     }
     
-    return `INV-${year}-${String(nextNumber).padStart(3, '0')}`
+    const year = new Date().getFullYear()
+    const prefix = settings.invoicePrefix || "INV"
+    const currentNumber = settings.invoiceCurrentNumber || settings.invoiceStartNumber || 1
+    
+    // Generate the invoice number
+    const invoiceNumber = `${prefix}-${year}-${String(currentNumber).padStart(3, '0')}`
+    
+    // Check if this number already exists (shouldn't happen, but safety check)
+    const existingInvoice = await invoicesCollection.findOne({
+        userId: ObjectId.createFromHexString(userId),
+        invoiceNumber: invoiceNumber
+    })
+    
+    if (existingInvoice) {
+        // If exists, increment and try again
+        await settingsCollection.updateOne(
+            { userId: ObjectId.createFromHexString(userId) },
+            { 
+                $set: { 
+                    invoiceCurrentNumber: currentNumber + 1,
+                    updatedAt: new Date()
+                }
+            }
+        )
+        return generateInvoiceNumber(userId) // Recursive call
+    }
+    
+    // Increment the current number for next time
+    await settingsCollection.updateOne(
+        { userId: ObjectId.createFromHexString(userId) },
+        { 
+            $set: { 
+                invoiceCurrentNumber: currentNumber + 1,
+                updatedAt: new Date()
+            }
+        }
+    )
+    
+    return invoiceNumber
+}
+
+// Get default settings values
+async function getDefaultSettings(userId) {
+    const settingsCollection = await getCollection("settings")
+    const settings = await settingsCollection.findOne({
+        userId: ObjectId.createFromHexString(userId)
+    })
+    
+    return {
+        defaultTaxRate: settings?.defaultTaxRate || 15,
+        defaultPaymentTerms: settings?.defaultPaymentTerms || 30
+    }
 }
 
 // Get all invoices for the logged-in user
@@ -259,7 +319,7 @@ export async function createInvoice(prevState, formData) {
         
         await invoicesCollection.insertOne(newInvoice)
         
-        
+        redirect("/invoices")
     } catch (error) {
         console.error("Error creating invoice:", error)
         return {
@@ -267,11 +327,9 @@ export async function createInvoice(prevState, formData) {
             success: false
         }
     }
-
-    return redirect("/invoices")
 }
 
-// Update invoice
+// Update invoice (rest of the code remains the same...)
 export async function updateInvoice(invoiceId, prevState, formData) {
     const user = await getUserFromCookie()
     
@@ -412,7 +470,7 @@ export async function updateInvoice(invoiceId, prevState, formData) {
             }
         )
         
-        
+        redirect("/invoices")
     } catch (error) {
         console.error("Error updating invoice:", error)
         return {
@@ -420,8 +478,6 @@ export async function updateInvoice(invoiceId, prevState, formData) {
             success: false
         }
     }
-
-    return redirect("/invoices")
 }
 
 // Delete invoice
@@ -504,6 +560,7 @@ export async function updateInvoiceStatus(invoiceId, newStatus) {
 }
 
 // Record payment
+// Record payment with full history tracking
 export async function recordPayment(invoiceId, prevState, formData) {
     const user = await getUserFromCookie()
     
@@ -516,6 +573,7 @@ export async function recordPayment(invoiceId, prevState, formData) {
     const amount = formData.get("amount")
     const paymentMethod = formData.get("paymentMethod")
     const paymentDate = formData.get("paymentDate")
+    const paymentNotes = formData.get("paymentNotes") // Optional notes
     
     const parsedAmount = parseFloat(amount)
     
@@ -570,6 +628,19 @@ export async function recordPayment(invoiceId, prevState, formData) {
             newStatus = "partial"
         }
         
+        // Create payment history entry
+        const paymentHistoryEntry = {
+            amount: parseFloat(parsedAmount.toFixed(2)),
+            paymentMethod: paymentMethod.trim(),
+            paymentDate: new Date(paymentDate),
+            recordedBy: user.userId,
+            recordedAt: new Date(),
+            notes: typeof paymentNotes === "string" ? paymentNotes.trim() : ""
+        }
+        
+        // Get existing payment history or create new array
+        const existingHistory = invoice.paymentHistory || []
+        
         await invoicesCollection.updateOne(
             {
                 _id: ObjectId.createFromHexString(invoiceId),
@@ -580,14 +651,16 @@ export async function recordPayment(invoiceId, prevState, formData) {
                     amountPaid: parseFloat(newAmountPaid.toFixed(2)),
                     balance: parseFloat(newBalance.toFixed(2)),
                     status: newStatus,
-                    paymentMethod: paymentMethod.trim(),
-                    paymentDate: new Date(paymentDate),
+                    paymentMethod: paymentMethod.trim(), // Last payment method
+                    paymentDate: new Date(paymentDate), // Last payment date
                     updatedAt: new Date()
+                },
+                $push: {
+                    paymentHistory: paymentHistoryEntry
                 }
             }
         )
         
-        // Redirect to invoice detail page after successful payment
         
     } catch (error) {
         console.error("Error recording payment:", error)
@@ -597,5 +670,9 @@ export async function recordPayment(invoiceId, prevState, formData) {
         }
     }
 
+    // Redirect to invoice detail page after successful payment
     return redirect(`/invoices/${invoiceId}`)
 }
+
+// Export the helper function for use in quotation conversion
+export { generateInvoiceNumber, getDefaultSettings }

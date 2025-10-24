@@ -1,258 +1,152 @@
 "use server"
-
-import { redirect } from "next/navigation"
-import { getUserFromCookie } from "../lib/getUser"
 import { getCollection } from "../lib/db"
+import { getUserFromCookie } from "../lib/getUser"
+import { redirect } from "next/navigation"
 import { ObjectId } from "mongodb"
-import { create } from "domain"
 
-// Helper function to generate quotation number
-async function generateQuotationsNumber(userId) {
+// Helper function to generate quotation number from settings
+async function generateQuotationNumber(userId) {
+    const settingsCollection = await getCollection("settings")
     const quotationsCollection = await getCollection("quotations")
-    const year = new Date().getFullYear()
     
-    // Find the latest quotation number for this user in this year
-    const latestQuotation = await quotationsCollection
-        .find({ 
+    // Get user settings
+    let settings = await settingsCollection.findOne({
+        userId: ObjectId.createFromHexString(userId)
+    })
+    
+    // Create default settings if none exist
+    if (!settings) {
+        const defaultSettings = {
             userId: ObjectId.createFromHexString(userId),
-            quotationNumber: new RegExp(`^QUO-${year}-`)
-        })
-        .sort({ createdAt: -1 })
-        .limit(1)
-        .toArray()
-    
-    let nextNumber = 1
-    
-    if (latestQuotation.length > 0) {
-        const lastNumber = latestQuotation[0].quotationNumber
-        const match = lastNumber.match(/QUO-\d{4}-(\d+)/)
-        if (match) {
-            nextNumber = parseInt(match[1]) + 1
+            invoicePrefix: "INV",
+            invoiceStartNumber: 1,
+            invoiceCurrentNumber: 1,
+            quotationPrefix: "QUO",
+            quotationStartNumber: 1,
+            quotationCurrentNumber: 1,
+            defaultTaxRate: 15,
+            defaultPaymentTerms: 30,
+            businessName: "",
+            businessAddress: "",
+            businessPhone: "",
+            businessEmail: "",
+            createdAt: new Date(),
+            updatedAt: new Date()
         }
+        
+        await settingsCollection.insertOne(defaultSettings)
+        settings = defaultSettings
     }
     
-    return `QUO-${year}-${String(nextNumber).padStart(3, '0')}`
-}
-
-// Helper function to generate invoice number
-async function generateInvoiceNumber(userId) {
-    const invoicesCollection = await getCollection("invoices")
     const year = new Date().getFullYear()
-
-    const latestInvoice = await invoicesCollection.find({
+    const prefix = settings.quotationPrefix || "QUO"
+    const currentNumber = settings.quotationCurrentNumber || settings.quotationStartNumber || 1
+    
+    // Generate the quotation number
+    const quotationNumber = `${prefix}-${year}-${String(currentNumber).padStart(3, '0')}`
+    
+    // Check if this number already exists (shouldn't happen, but safety check)
+    const existingQuotation = await quotationsCollection.findOne({
         userId: ObjectId.createFromHexString(userId),
-        invoiceNumber: new RegExp(`^INV-${year}-`)
-    }).sort({
-        createdAt: -1
-    }).limit(1).toArray()
-
-    let nextNumber = 1
-
-    if (latestInvoice.length > 0) {
-        const lastNumber = latestInvoice[0].invoiceNumber
-        const match = lastNumber.match(/INV-\d{4}-(\d+)/)
-        if (match) { 
-            nextNumber = parseInt(match[1]) + 1
-        }
+        quotationNumber: quotationNumber
+    })
+    
+    if (existingQuotation) {
+        // If exists, increment and try again
+        await settingsCollection.updateOne(
+            { userId: ObjectId.createFromHexString(userId) },
+            { 
+                $set: { 
+                    quotationCurrentNumber: currentNumber + 1,
+                    updatedAt: new Date()
+                }
+            }
+        )
+        return generateQuotationNumber(userId) // Recursive call
     }
-
-    return `INV-${year}-${String(nextNumber).padStart(3, '0')}`
+    
+    // Increment the current number for next time
+    await settingsCollection.updateOne(
+        { userId: ObjectId.createFromHexString(userId) },
+        { 
+            $set: { 
+                quotationCurrentNumber: currentNumber + 1,
+                updatedAt: new Date()
+            }
+        }
+    )
+    
+    return quotationNumber
 }
 
-// Convert quotation to invoice
-export async function convertQuotationToInvoice(quotationId, prevState, formData) {
+// Get default settings values
+async function getDefaultSettings(userId) {
+    const settingsCollection = await getCollection("settings")
+    const settings = await settingsCollection.findOne({
+        userId: ObjectId.createFromHexString(userId)
+    })
+    
+    return {
+        defaultTaxRate: settings?.defaultTaxRate || 15,
+        defaultPaymentTerms: settings?.defaultPaymentTerms || 30
+    }
+}
+
+// Rest of your quotation functions remain the same, just update the create function:
+
+// Get all quotations for the logged-in user
+export async function getQuotations() {
     const user = await getUserFromCookie()
     
     if (!user) {
         redirect("/login")
     }
     
-    const errors = {}
-    
-    // Get form data
-    const invoiceDate = formData.get("invoiceDate")
-    const dueDate = formData.get("dueDate")
-    const purchaseOrderNumber = formData.get("purchaseOrderNumber")
-    const additionalNotes = formData.get("additionalNotes")
-
-    
-    
-    // Validation
-    if (!invoiceDate || typeof invoiceDate !== "string") {
-        errors.invoiceDate = "Invoice date is required"
-    }
-    
-    if (!dueDate || typeof dueDate !== "string") {
-        errors.dueDate = "Due date is required"
-    }
-    
-    if (invoiceDate && dueDate) {
-        const invDate = new Date(invoiceDate)
-        const dueDateObj = new Date(dueDate)
-        
-        if (dueDateObj < invDate) {
-            errors.dueDate = "Due date must be on or after invoice date"
-        }
-    }
-    
-    if (Object.keys(errors).length > 0) {
-        return {
-            errors,
-            success: false
-        }
-    }
-    
-    let newInvoiceId = null
-    try {
-        // Get the quotation
-        const quotationsCollection = await getCollection("quotations")
-        const quotation = await quotationsCollection.findOne({
-            _id: ObjectId.createFromHexString(quotationId),
-            userId: ObjectId.createFromHexString(user.userId)
-        })
-        
-        if (!quotation) {
-            return {
-                errors: { general: "Quotation not found" },
-                success: false
-            }
-        }
-        
-        // Check if quotation has already been converted
-        const invoicesCollection = await getCollection("invoices")
-        const existingInvoice = await invoicesCollection.findOne({
-            quotationId: ObjectId.createFromHexString(quotationId)
-        })
-        
-        if (existingInvoice) {
-            return {
-                errors: { general: "This quotation has already been converted to an invoice" },
-                success: false
-            }
-        }
-        
-        // Generate invoice number
-        const invoiceNumber = await generateInvoiceNumber(user.userId)
-        
-        // Combine notes
-        let combinedNotes = quotation.notes || ""
-        const additionalNotesText = typeof additionalNotes === "string" ? additionalNotes.trim() : ""
-        
-        if (additionalNotesText) {
-            combinedNotes = combinedNotes 
-                ? `${combinedNotes}\n\n${additionalNotesText}`
-                : additionalNotesText
-        }
-        
-        // Create invoice from quotation
-        const newInvoice = {
-            invoiceNumber,
-            userId: quotation.userId,
-            clientId: quotation.clientId,
-            quotationId: ObjectId.createFromHexString(quotationId),
-            date: new Date(invoiceDate),
-            dueDate: new Date(dueDate),
-            items: quotation.items, // Copy line items
-            subtotal: quotation.subtotal,
-            taxRate: quotation.taxRate,
-            tax: quotation.tax,
-            total: quotation.total,
-            amountPaid: 0,
-            balance: quotation.total,
-            status: "draft",
-            paymentMethod: null,
-            paymentDate: null,
-            purchaseOrderNumber: typeof purchaseOrderNumber === "string" ? purchaseOrderNumber.trim() : null,
-            notes: combinedNotes,
-            createdAt: new Date(),
-            updatedAt: new Date()
-        }
-        
-        const result = await invoicesCollection.insertOne(newInvoice)
-        newInvoiceId = result.insertedId.toString()
-        
-        // Update quotation status to accepted (if not already)
-        if (quotation.status !== "accepted") {
-            await quotationsCollection.updateOne(
-                {
-                    _id: ObjectId.createFromHexString(quotationId),
-                    userId: ObjectId.createFromHexString(user.userId)
-                },
-                {
-                    $set: {
-                        status: "accepted",
-                        updatedAt: new Date()
-                    }
-                }
-            )
-        }
-        
-        
-    } catch (error) {
-        console.error("Error converting quotation to invoice:", error)
-        return {
-            errors: { general: "Failed to convert quotation. Please try again." },
-            success: false
-        }
-    }
-
-    // Redirect to the new invoice
-    return redirect(`/invoices/${newInvoiceId}`)
-}
-
-// Get all quotations for the logged-in user
-export async function getQuotations() {
-    const user = await getUserFromCookie()
-
-    if(!user) {
-        return redirect("/login")
-    }
-
     try {
         const quotationsCollection = await getCollection("quotations")
-        const quotations = await quotationsCollection.find({
-            userId: ObjectId.createFromHexString(user.userId)
-        }).sort({
-            createdAt: -1
-        }).toArray()
-
+        const quotations = await quotationsCollection
+            .find({ userId: ObjectId.createFromHexString(user.userId) })
+            .sort({ createdAt: -1 })
+            .toArray()
+        
         // Convert ObjectId to string for client-side use
         return quotations.map(quotation => ({
             ...quotation,
             _id: quotation._id.toString(),
             userId: quotation.userId.toString(),
-            clientId: quotation.clientId.toString()
+            clientId: quotation.clientId.toString(),
         }))
     } catch (error) {
-        console.error("Error fetching quotations: ", error)
+        console.error("Error fetching quotations:", error)
         return []
     }
 }
 
+// Get single quotation by ID
 export async function getQuotationById(quotationId) {
     const user = await getUserFromCookie()
-
+    
     if (!user) {
-        return redirect("/login")
+        redirect("/login")
     }
-
+    
     try {
         const quotationsCollection = await getCollection("quotations")
         const quotation = await quotationsCollection.findOne({
             _id: ObjectId.createFromHexString(quotationId),
             userId: ObjectId.createFromHexString(user.userId)
         })
-
+        
         if (!quotation) {
             return null
         }
-
+        
         // Get client info
         const clientsCollection = await getCollection("clients")
         const client = await clientsCollection.findOne({
-            _id:quotation.clientId
+            _id: quotation.clientId
         })
-
+        
         return {
             ...quotation,
             _id: quotation._id.toString(),
@@ -265,7 +159,7 @@ export async function getQuotationById(quotationId) {
             } : null
         }
     } catch (error) {
-        console.error("Error fetching quotation: ", error)
+        console.error("Error fetching quotation:", error)
         return null
     }
 }
@@ -303,91 +197,96 @@ export async function getQuotationsByClientId(clientId) {
 // Create new quotation
 export async function createQuotation(prevState, formData) {
     const user = await getUserFromCookie()
-
+    
     if (!user) {
-        return redirect("/login")
+        redirect("/login")
     }
-
+    
     const errors = {}
-
+    
     // Get basic form data
-
     const clientId = formData.get("clientId")
     const date = formData.get("date")
     const validUntil = formData.get("validUntil")
     const taxRate = formData.get("taxRate")
     const notes = formData.get("notes")
-
-    // Get line items
+    
+    // Get line items (they come as JSON string)
     const itemsJson = formData.get("items")
-
+    
     // Validation
-    if(!clientId || typeof clientId !== "string" || clientId.trim() === "") {
+    if (!clientId || typeof clientId !== "string" || clientId.trim() === "") {
         errors.clientId = "Please select a client"
     }
-
+    
     if (!date || typeof date !== "string") {
         errors.date = "Quotation date is required"
     }
-
+    
     if (!validUntil || typeof validUntil !== "string") {
         errors.validUntil = "Valid until date is required"
     }
-
+    
     // Validate dates
     if (date && validUntil) {
         const quotationDate = new Date(date)
         const expiryDate = new Date(validUntil)
-
-        if (expiryDate < quotationDate ) {
+        
+        if (expiryDate <= quotationDate) {
             errors.validUntil = "Expiry date must be after quotation date"
         }
     }
-
+    
     let items = []
     try {
         items = JSON.parse(itemsJson || "[]")
-
+        
         if (!Array.isArray(items) || items.length === 0) {
             errors.items = "Please add at least one line item"
         } else {
             // Validate each item
             items.forEach((item, index) => {
-                if(!item.description || item.description.trim() === "") errors[`item_${index}_description`] = "Description is required"
-                if(!item.quantity || item.quantity <= 0) errors[`item_${index}_quantity`] = "Quantity must be greater than 0"
-                if(!item.unitPrice || item.unitPrice <= 0) errors[`item_${index}_unitPrice`] = "UnitPrice must be greater than 0"
+                if (!item.description || item.description.trim() === "") {
+                    errors[`item_${index}_description`] = "Description is required"
+                }
+                if (!item.quantity || item.quantity <= 0) {
+                    errors[`item_${index}_quantity`] = "Quantity must be greater than 0"
+                }
+                if (!item.unitPrice || item.unitPrice <= 0) {
+                    errors[`item_${index}_unitPrice`] = "Unit price must be greater than 0"
+                }
             })
         }
-    } catch (error) {
+    } catch (e) {
         errors.items = "Invalid line items data"
     }
-
+    
     const parsedTaxRate = parseFloat(taxRate) || 0
-
-    if(parsedTaxRate < 0 || parsedTaxRate > 100) {
-        errors.taxRate = "Tax Rate must be between 0 and 100"
+    
+    if (parsedTaxRate < 0 || parsedTaxRate > 100) {
+        errors.taxRate = "Tax rate must be between 0 and 100"
     }
-
+    
     if (Object.keys(errors).length > 0) {
         return {
             errors,
             success: false
         }
     }
-
+    
     // Calculate totals
     const subtotal = items.reduce((sum, item) => {
         return sum + (item.quantity * item.unitPrice)
     }, 0)
-
+    
     const tax = subtotal * (parsedTaxRate / 100)
     const total = subtotal + tax
-
+    
     // Create quotation
     try {
         const quotationsCollection = await getCollection("quotations")
-        const quotationNumber = await generateQuotationsNumber(user.userId)
-
+        const quotationNumber = await generateQuotationNumber(user.userId)
+        
         const newQuotation = {
             quotationNumber,
             userId: ObjectId.createFromHexString(user.userId),
@@ -409,20 +308,20 @@ export async function createQuotation(prevState, formData) {
             createdAt: new Date(),
             updatedAt: new Date()
         }
-
+        
         await quotationsCollection.insertOne(newQuotation)
+        
+        redirect("/quotations")
     } catch (error) {
-        console.error("Error creating quotation: ", error)
+        console.error("Error creating quotation:", error)
         return {
-            error: { general: "Failded to create quotation. Please try again."},
+            errors: { general: "Failed to create quotation. Please try again." },
             success: false
         }
     }
-
-    return redirect("/quotations")
 }
 
-// Update quotation
+// Update quotation (same as before, no changes needed)
 export async function updateQuotation(quotationId, prevState, formData) {
     const user = await getUserFromCookie()
     
@@ -545,7 +444,7 @@ export async function updateQuotation(quotationId, prevState, formData) {
             }
         )
         
-        
+        redirect("/quotations")
     } catch (error) {
         console.error("Error updating quotation:", error)
         return {
@@ -553,8 +452,6 @@ export async function updateQuotation(quotationId, prevState, formData) {
             success: false
         }
     }
-
-    return redirect("/quotations")
 }
 
 // Delete quotation
@@ -645,6 +542,217 @@ export async function updateQuotationStatus(quotationId, newStatus) {
         return {
             success: false,
             error: "Failed to update status. Please try again."
+        }
+    }
+}
+
+// Helper function to generate invoice number (for conversion)
+async function generateInvoiceNumberForConversion(userId) {
+    const settingsCollection = await getCollection("settings")
+    const invoicesCollection = await getCollection("invoices")
+    
+    // Get user settings
+    let settings = await settingsCollection.findOne({
+        userId: ObjectId.createFromHexString(userId)
+    })
+    
+    // Create default settings if none exist
+    if (!settings) {
+        const defaultSettings = {
+            userId: ObjectId.createFromHexString(userId),
+            invoicePrefix: "INV",
+            invoiceStartNumber: 1,
+            invoiceCurrentNumber: 1,
+            quotationPrefix: "QUO",
+            quotationStartNumber: 1,
+            quotationCurrentNumber: 1,
+            defaultTaxRate: 15,
+            defaultPaymentTerms: 30,
+            businessName: "",
+            businessAddress: "",
+            businessPhone: "",
+            businessEmail: "",
+            createdAt: new Date(),
+            updatedAt: new Date()
+        }
+        
+        await settingsCollection.insertOne(defaultSettings)
+        settings = defaultSettings
+    }
+    
+    const year = new Date().getFullYear()
+    const prefix = settings.invoicePrefix || "INV"
+    const currentNumber = settings.invoiceCurrentNumber || settings.invoiceStartNumber || 1
+    
+    // Generate the invoice number
+    const invoiceNumber = `${prefix}-${year}-${String(currentNumber).padStart(3, '0')}`
+    
+    // Check if this number already exists
+    const existingInvoice = await invoicesCollection.findOne({
+        userId: ObjectId.createFromHexString(userId),
+        invoiceNumber: invoiceNumber
+    })
+    
+    if (existingInvoice) {
+        // If exists, increment and try again
+        await settingsCollection.updateOne(
+            { userId: ObjectId.createFromHexString(userId) },
+            { 
+                $set: { 
+                    invoiceCurrentNumber: currentNumber + 1,
+                    updatedAt: new Date()
+                }
+            }
+        )
+        return generateInvoiceNumberForConversion(userId)
+    }
+    
+    // Increment the current number for next time
+    await settingsCollection.updateOne(
+        { userId: ObjectId.createFromHexString(userId) },
+        { 
+            $set: { 
+                invoiceCurrentNumber: currentNumber + 1,
+                updatedAt: new Date()
+            }
+        }
+    )
+    
+    return invoiceNumber
+}
+
+// Convert quotation to invoice
+export async function convertQuotationToInvoice(quotationId, prevState, formData) {
+    const user = await getUserFromCookie()
+    
+    if (!user) {
+        redirect("/login")
+    }
+    
+    const errors = {}
+    
+    // Get form data
+    const invoiceDate = formData.get("invoiceDate")
+    const dueDate = formData.get("dueDate")
+    const purchaseOrderNumber = formData.get("purchaseOrderNumber")
+    const additionalNotes = formData.get("additionalNotes")
+    
+    // Validation
+    if (!invoiceDate || typeof invoiceDate !== "string") {
+        errors.invoiceDate = "Invoice date is required"
+    }
+    
+    if (!dueDate || typeof dueDate !== "string") {
+        errors.dueDate = "Due date is required"
+    }
+    
+    if (invoiceDate && dueDate) {
+        const invDate = new Date(invoiceDate)
+        const dueDateObj = new Date(dueDate)
+        
+        if (dueDateObj < invDate) {
+            errors.dueDate = "Due date must be on or after invoice date"
+        }
+    }
+    
+    if (Object.keys(errors).length > 0) {
+        return {
+            errors,
+            success: false
+        }
+    }
+    
+    try {
+        // Get the quotation
+        const quotationsCollection = await getCollection("quotations")
+        const quotation = await quotationsCollection.findOne({
+            _id: ObjectId.createFromHexString(quotationId),
+            userId: ObjectId.createFromHexString(user.userId)
+        })
+        
+        if (!quotation) {
+            return {
+                errors: { general: "Quotation not found" },
+                success: false
+            }
+        }
+        
+        // Check if quotation has already been converted
+        const invoicesCollection = await getCollection("invoices")
+        const existingInvoice = await invoicesCollection.findOne({
+            quotationId: ObjectId.createFromHexString(quotationId)
+        })
+        
+        if (existingInvoice) {
+            return {
+                errors: { general: "This quotation has already been converted to an invoice" },
+                success: false
+            }
+        }
+        
+        // Generate invoice number using settings
+        const invoiceNumber = await generateInvoiceNumberForConversion(user.userId)
+        
+        // Combine notes
+        let combinedNotes = quotation.notes || ""
+        const additionalNotesText = typeof additionalNotes === "string" ? additionalNotes.trim() : ""
+        
+        if (additionalNotesText) {
+            combinedNotes = combinedNotes 
+                ? `${combinedNotes}\n\n${additionalNotesText}`
+                : additionalNotesText
+        }
+        
+        // Create invoice from quotation
+        const newInvoice = {
+            invoiceNumber,
+            userId: quotation.userId,
+            clientId: quotation.clientId,
+            quotationId: ObjectId.createFromHexString(quotationId),
+            date: new Date(invoiceDate),
+            dueDate: new Date(dueDate),
+            items: quotation.items, // Copy line items
+            subtotal: quotation.subtotal,
+            taxRate: quotation.taxRate,
+            tax: quotation.tax,
+            total: quotation.total,
+            amountPaid: 0,
+            balance: quotation.total,
+            status: "draft",
+            paymentMethod: null,
+            paymentDate: null,
+            purchaseOrderNumber: typeof purchaseOrderNumber === "string" ? purchaseOrderNumber.trim() : null,
+            notes: combinedNotes,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        }
+        
+        const result = await invoicesCollection.insertOne(newInvoice)
+        const newInvoiceId = result.insertedId.toString()
+        
+        // Update quotation status to accepted (if not already)
+        if (quotation.status !== "accepted") {
+            await quotationsCollection.updateOne(
+                {
+                    _id: ObjectId.createFromHexString(quotationId),
+                    userId: ObjectId.createFromHexString(user.userId)
+                },
+                {
+                    $set: {
+                        status: "accepted",
+                        updatedAt: new Date()
+                    }
+                }
+            )
+        }
+        
+        // Redirect to the new invoice
+        redirect(`/invoices/${newInvoiceId}`)
+    } catch (error) {
+        console.error("Error converting quotation to invoice:", error)
+        return {
+            errors: { general: "Failed to convert quotation. Please try again." },
+            success: false
         }
     }
 }
